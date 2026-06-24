@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Interview Trainer — Data & AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ 
+      --bg:#f3f4f6;          /* light gray background */
+      --card:#1e3a8a;        /* dark blue card */
+      --muted:#6b7280;       /* neutral gray text */
+      --accent:#2563eb;      /* corporate blue */
+      --text:#ffffff;        /* white text for readability on dark background */
+    }
+    *{box-sizing:border-box}
+    body{ 
+      margin:0; min-height:100vh; font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto;
+      background:linear-gradient(180deg,#f9fafb 0%,rgb(107, 126, 164) 100%); color:var(--text); padding:28px;
+      display:flex; justify-content:center; align-items:flex-start; 
+    }
+    .app{ width:100%; max-width:1100px }
+    .card{ background:linear-gradient(180deg, rgb(5, 22, 69), rgb(5, 22, 69));
+      border:1px solid rgba(59,130,246,0.3); border-radius:14px; padding:18px; margin-bottom:16px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+    h1{margin:0 0 6px 0;font-size:20px}
+    .muted{color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+    input, select, button, textarea{ background:#1e40af; border:1px solid rgba(59,130,246,0.3);
+      color:#ffffff; padding:10px;border-radius:10px;font-size:14px }
+    button.primary{ background:linear-gradient(90deg,var(--accent),#1d4ed8); color:#ffffff; font-weight:600 }
+    .grid{ display:grid; gap:14px }
+    .questions{ display:grid; gap:10px; margin-top:10px }
+    .q{ padding:12px; border-radius:10px; background:#1e40af; display:flex; gap:12px; align-items:flex-start; }
+    .q .meta{ font-size:12px; color:var(--muted); margin-bottom:8px }
+    textarea#transcript{ width:100%; min-height:120px; resize:vertical; padding:12px; border-radius:10px }
+    .analysis{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+    .box{ background:#1e40af; padding:12px; border-radius:10px }
+    ul{ margin:6px 0 0 18px }
+    .bookmark-btn{ position:fixed; top:20px; right:20px; background:#ff6b35; color:white; border:none; padding:12px 16px; border-radius:50px; font-size:16px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:1000; }
+    .bookmark-btn:hover{ background:#e55a2b; }
+    .bookmark-modal{ position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; display:none; }
+    .bookmark-content{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#1e3a8a; border-radius:14px; padding:24px; max-width:800px; max-height:80vh; overflow-y:auto; border:1px solid rgba(59,130,246,0.3); }
+    .bookmark-item{ background:#1e40af; padding:16px; margin-bottom:12px; border-radius:10px; }
+    .star-btn{ background:transparent; border:none; color:#ffd700; font-size:18px; cursor:pointer; margin-left:8px; }
+    .star-btn.active{ color:#ff6b35; }
+    @media (max-width:800px){ .analysis{ grid-template-columns:1fr } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Bookmark Button -->
+    <button class="bookmark-btn" id="bookmarkBtn">📚 Bookmarks</button>
+    
+    <!-- Bookmark Modal -->
+    <div class="bookmark-modal" id="bookmarkModal">
+      <div class="bookmark-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h2 style="margin:0;color:white;">📚 Bookmarked Questions</h2>
+          <button onclick="closeBookmarks()" style="background:transparent;border:none;color:white;font-size:24px;cursor:pointer;">×</button>
+        </div>
+        <div id="bookmarkList"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h1>Interview Trainer — Data & AI</h1>
+      <div class="muted">Generate questions, listen via TTS, answer by voice, and get AI feedback.</div>
+      <div class="controls">
+        <input id="role" placeholder="Role (e.g. Data Scientist)" style="width:320px" />
+        <select id="qtype">
+          <option value="technical">technical</option>
+          <option value="behavioral">behavioral</option>
+          <option value="system">system-design</option>
+          <option value="generative">generative-llm</option>
+        </select>
+        <select id="difficulty">
+          <option value="easy">easy</option>
+          <option value="medium" selected>medium</option>
+          <option value="hard">hard</option>
+        </select>
+        <input id="count" type="number" min="1" max="12" value="5" style="width:80px" />
+        <button class="primary" id="genBtn">Generate Questions</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <strong>Questions</strong>
+        <div id="questions" class="questions"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Your Answer (record & convert to text)</strong>
+        <div class="rec">
+          <button id="startRec">🎙 Start Recording</button>
+          <button id="stopRec">⏹ Stop</button>
+          <div id="recStatus" class="muted">Idle</div>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <textarea id="transcript" placeholder="Transcript will appear here..."></textarea>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="nextBtn" class="primary" style="display:none">➡️ Next Question</button>
+        <button id="analyzeBtn" class="primary" style="display:none">Analyze Answers</button>
+        <button id="clearBtn">Clear</button>
+        <div id="kpi" class="muted" style="margin-left:auto">Words: <span id="wcnt">0</span> • Sentences: <span id="scnt">0</span></div>
+      </div>
+    </div>
+
+    <div id="analysisSection" class="card" style="display:none">
+      <strong>Analysis</strong>
+      <div id="analysisContent"></div>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+let allQuestions=[], currentIndex=0, answers={};
+let recognition, isRecording=false, finalTranscript="";
+
+// --- Question generation ---
+$("genBtn").onclick=async()=>{
+  const role=$("role").value.trim()||"Software Engineer";
+  const qtype=$("qtype").value;
+  const difficulty=$("difficulty").value;
+  const count=parseInt($("count").value||"5",10);
+
+  const res=await fetch("/api/generate_questions",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ role, question_type:qtype, difficulty, count })
+  });
+  const data=await res.json();
+  allQuestions=data.questions||[];
+  currentIndex=0; answers={};
+  finalTranscript=""; 
+  $("transcript").value=""; 
+  $("questions").innerHTML=""; $("analysisSection").style.display="none";
+  $("analyzeBtn").style.display="none"; $("nextBtn").style.display="none";
+  updateKPI(); 
+  if(allQuestions.length) showNextQuestion();
+};
+
+function showNextQuestion(){
+  if(currentIndex>=allQuestions.length){
+    $("questions").innerHTML+="<div class='q'>✅ You’ve answered all questions!</div>";
+    $("nextBtn").style.display="none"; $("analyzeBtn").style.display="inline-block"; return;
+  }
+  const q=allQuestions[currentIndex];
+  const isBookmarked = getBookmarks().some(b => b.questionId === q.id);
+  $("questions").innerHTML=`
+    <div class="q">
+      <div style="flex:1">
+        <div class="meta">${q.type} • ${q.difficulty}</div>
+        <div style="font-size:15px;margin-bottom:8px">${q.text}</div>
+      </div>
+      <div>
+        <button id="playBtn">🔊 Play TTS</button>
+        <button class="star-btn ${isBookmarked ? 'active' : ''}" id="starBtn" onclick="toggleBookmark('${q.id}', '${q.text.replace(/'/g, "\\'")}')">⭐</button>
+        <audio id="questionAudio" controls style="display:none"></audio>
+      </div>
+    </div>`;
+  $("nextBtn").style.display="inline-block";
+  
+  let audioGenerated = false;
+  let audioUrl = "";
+  
+  $("playBtn").onclick=async()=>{
+    const audioElement = $("questionAudio");
+    
+    if(audioGenerated && audioUrl){
+      audioElement.currentTime = 0;
+      audioElement.play();
+      return;
+    }
+    
+    $("playBtn").textContent = "🔄 Loading...";
+    $("playBtn").disabled = true;
+    
+    try {
+      const r=await fetch("/api/tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:q.text,id:q.id})});
+      const info=await r.json();
+      
+      if(info.url){
+        audioUrl = info.url + "?v=" + Date.now();
+        audioElement.src = audioUrl;
+        audioElement.style.display = "inline-block";
+        audioElement.play();
+        audioGenerated = true;
+        $("playBtn").textContent = "🔊 Play Again";
+      }
+    } catch(e) {
+      console.error("Error generating TTS:", e);
+      $("playBtn").textContent = "❌ Error";
+    } finally {
+      $("playBtn").disabled = false;
+    }
+  };
+}
+
+function saveCurrentAnswer(){
+  const t=$("transcript").value.trim();
+  if(t && allQuestions[currentIndex]) answers[allQuestions[currentIndex].id]=t;
+  $("transcript").value=""; 
+  finalTranscript=""; 
+  updateKPI();
+}
+$("nextBtn").onclick=()=>{ saveCurrentAnswer(); currentIndex++; showNextQuestion(); };
+
+// --- Live speech recognition ---
+if('webkitSpeechRecognition'in window){
+  recognition=new webkitSpeechRecognition();
+  recognition.continuous=true; recognition.interimResults=true; recognition.lang="en-US";
+
+  recognition.onresult=(event)=>{
+    let interim=""; 
+    for(let i=event.resultIndex;i<event.results.length;++i){
+      if(event.results[i].isFinal){ finalTranscript+=event.results[i][0].transcript+" "; }
+      else { interim+=event.results[i][0].transcript; }
+    }
+    $("transcript").value=finalTranscript+" "+interim;
+    updateKPI();
+  };
+
+  recognition.onerror=(e)=>console.error("STT error:",e);
+}
+
+$("startRec").onclick=()=>{
+  if(!isRecording && recognition){
+    finalTranscript=""; $("transcript").value="";
+    recognition.start(); isRecording=true;
+    $("recStatus").textContent="Recording...";
+  }
+};
+$("stopRec").onclick=()=>{
+  if(isRecording && recognition){
+    recognition.stop(); isRecording=false;
+    $("recStatus").textContent="Stopped";
+  }
+};
+
+// --- Analysis ---
+$("analyzeBtn").onclick=async()=>{
+  $("analysisSection").style.display="block";
+  $("analysisContent").innerHTML="<div>Analyzing...</div>";
+  const results=[];
+  for(const q of allQuestions){
+    const transcript=answers[q.id]||"";
+    if(!transcript) continue;
+    const r=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({transcript,question:q.text})});
+    const d=await r.json(); results.push({question:q.text,analysis:d});
+  }
+  renderAnalysis(results);
+};
+function renderAnalysis(results){
+  $("analysisContent").innerHTML="";
+  for(const r of results){
+    const box=document.createElement("div"); box.className="card";
+    box.innerHTML=`<div style="margin-bottom:8px;font-weight:600">${r.question}</div>
+      <div class="analysis">
+        <div class="box"><h4>Summary</h4><div>${r.analysis.summary||"—"}</div></div>
+        <div class="box"><h4>Pros</h4>${listHTML(r.analysis.pros)}</div>
+        <div class="box"><h4>Cons</h4>${listHTML(r.analysis.cons)}</div>
+      </div>
+      <div class="box"><h4>Suggestions</h4>${listHTML(r.analysis.suggestions)}</div>`;
+    $("analysisContent").appendChild(box);
+  }
+}
+function listHTML(arr){if(!arr||!arr.length)return"—";return"<ul>"+arr.map(i=>`<li>${i}</li>`).join("")+"</ul>";}
+
+$("clearBtn").onclick=()=>{
+  $("transcript").value="";
+  finalTranscript=""; 
+  $("analysisSection").style.display="none";
+  $("wcnt").textContent="0";
+  $("scnt").textContent="0";
+};
+function updateKPI(){const t=$("transcript").value;const w=t.trim()?t.trim().split(/\s+/).length:0;const s=(t.match(/[.!?]+/g)||[]).length||(t.trim()?1:0);$("wcnt").textContent=w;$("scnt").textContent=s;}
+$("transcript").addEventListener("input",updateKPI);
+
+// --- Bookmarking ---
+function getBookmarks(){
+  const stored = localStorage.getItem('interview_bookmarks');
+  return stored ? JSON.parse(stored) : [];
+}
+
+function saveBookmarks(bookmarks){
+  localStorage.setItem('interview_bookmarks', JSON.stringify(bookmarks));
+}
+
+function toggleBookmark(questionId, questionText){
+  const bookmarks = getBookmarks();
+  const existingIndex = bookmarks.findIndex(b => b.questionId === questionId);
+  
+  if(existingIndex !== -1){
+    bookmarks.splice(existingIndex, 1);
+    $("starBtn").classList.remove('active');
+  } else {
+    const currentAnswer = $("transcript").value.trim();
+    bookmarks.push({
+      questionId: questionId,
+      question: questionText,
+      answer: currentAnswer,
+      timestamp: new Date().toISOString()
+    });
+    $("starBtn").classList.add('active');
+  }
+  
+  saveBookmarks(bookmarks);
+}
+
+function showBookmarks(){
+  const bookmarks = getBookmarks();
+  const modal = $("bookmarkModal");
+  const list = $("bookmarkList");
+  
+  if(bookmarks.length === 0){
+    list.innerHTML = '<div style="color:#6b7280;text-align:center;padding:20px;">No bookmarked questions yet.</div>';
+  } else {
+    list.innerHTML = bookmarks.map(bookmark => `
+      <div class="bookmark-item">
+        <div style="font-weight:600;margin-bottom:8px;color:white;">${bookmark.question}</div>
+        <div style="color:#93c5fd;font-size:14px;margin-bottom:8px;">
+          Bookmarked: ${new Date(bookmark.timestamp).toLocaleDateString()}
+        </div>
+        <div style="background:#1e40af;padding:10px;border-radius:8px;margin-top:8px;">
+          <strong style="color:#fbbf24;">Your Answer:</strong>
+          <div style="color:#e5e7eb;margin-top:4px;">${bookmark.answer || 'No answer recorded'}</div>
+        </div>
+        <button onclick="removeBookmark('${bookmark.questionId}')" style="background:#dc2626;color:white;border:none;padding:6px 12px;border-radius:6px;margin-top:8px;cursor:pointer;font-size:12px;">Remove</button>
+      </div>
+    `).join('');
+  }
+  
+  modal.style.display = 'block';
+}
+
+function closeBookmarks(){
+  $("bookmarkModal").style.display = 'none';
+}
+
+function removeBookmark(questionId){
+  const bookmarks = getBookmarks().filter(b => b.questionId !== questionId);
+  saveBookmarks(bookmarks);
+  showBookmarks();
+}
+
+$("bookmarkBtn").onclick = showBookmarks;
+
+$("bookmarkModal").onclick = (e) => {
+  if(e.target === $("bookmarkModal")){
+    closeBookmarks();
+  }
+};
+</script>
+</body>
+</html>
